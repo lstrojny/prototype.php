@@ -1,7 +1,5 @@
 <?php
 
-namespace \Prototype;
-
 class Object {
 
     public function __construct (Object $prototype = null) {
