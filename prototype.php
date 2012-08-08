@@ -1,6 +1,6 @@
 <?php
 
-class Object {
+class Object implements ArrayAccess {
 
     public function __construct (Object $prototype = null) {
         $this->prototype = $prototype ? clone $prototype : new Prototype;
@@ -33,6 +33,11 @@ class Object {
         catch (BadMethodCallException $e) { return "[object]"; }
     }
 
+    public function __destruct () {
+        try { $this->__call('destruct'); }
+        catch (BadMethodCallException $e) { return; }
+    }
+
     public function fn ($name, Closure $function) {
         if (!is_callable($function))
             throw new InvalidArgumentException("Invalid function");
@@ -54,6 +59,22 @@ class Object {
         return $this;
     }
 
+    public function offsetExists ($offset) {
+        return $this->__get($offset) !== null;
+    }
+
+    public function offsetGet ($offset) {
+        return $this->__get($offset);
+    }
+
+    public function offsetSet ($offset, $value) {
+        return $this->__set($offset, $value);
+    }
+
+    public function offsetUnset ($offset) {
+        if (isset($this->$offset)) unset($this->$offset);
+    }
+
     public static function create ($prototype = null) {
         return new static ($prototype);
     }
@@ -63,6 +84,12 @@ class Object {
         foreach ($data as $key => $value)
             $object->$key = $value;
         return $object;
+    }
+}
+
+class Prototype extends Object {
+
+    public function __construct () {
     }
 }
 
@@ -89,11 +116,5 @@ class Method {
         $function = $this->_closure;
         array_unshift($args, $context);
         return call_user_func_array($function, $args);
-    }
-}
-
-class Prototype extends Object {
-
-    public function __construct () {
     }
 }
