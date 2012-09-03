@@ -15,7 +15,7 @@ function _ () {
         'construct' => function ($that, $val) {
             $that->val = $val;
         },
-        'getPrimitive' => function ($that) {
+        'unbox' => function ($that) {
             return $that->val;
         },
         'toString' => function ($that) {
@@ -33,15 +33,15 @@ function String () {
 
 String()->prototype
     ->fn('toLowerCase', function ($that) {
-        $that->val = valtolower($that->val);
+        $that->val = strtolower($that->val);
         return $that;
     })
     ->fn('toUpperCase', function ($that) {
-        $that->val = valtoupper($that->val);
+        $that->val = strtoupper($that->val);
         return $that;
     })
     ->fn('replace', function ($that, $search, $replacement) {
-        $that->val = val_replace($search, $replacement, $that->val);
+        $that->val = str_replace($search, $replacement, $that->val);
         return $that;
     })
     ->fn('match', function ($that, $pattern, $flags = 0, $offset = 0) {
@@ -57,7 +57,44 @@ function Number () {
 Number()->prototype
     ->fn('format', function ($that, $decimals = 0, $dec_point = ".", $thousands_sep = ',') {
         return String(number_format($that->val, $decimals, $dec_point, $thousands_sep));
+    })
+    ->fn('convert', function ($that, $from_base, $to_base) {
+        return String(base_convert($that->val, $from_base, $to_base));
     });
 
-$i = Number(123);
-echo $i->format(3, ',', '.');
+function Collection () {
+    static $collection = null;
+    $collection || $collection = new Object(_());
+    return func_num_args() ? $collection->new(func_get_arg(0)) : $collection;
+}
+
+Collection()->prototype
+    ->fn('construct', function ($that, array $values = array()) {
+        if (empty($values)) return;
+        foreach ($values as $key => $value) $that->$key = $value;
+    })
+    ->fn('each', function ($that, Closure $fct) {
+        foreach ((array)$that as $key => $value) {
+            if ($key == 'prototype' || $value instanceOf Method)
+                continue;
+            $fct($key, $value);
+        }
+        return $that;
+    })
+    ->fn('count', function ($that) {
+        $count = 0;
+        foreach ((array)$that as $key => $value) {
+            if ($key != 'prototype' && !$value instanceOf Method)
+                $count++;
+        }
+        return Number($count);
+    })
+    ->fn('push', function ($that, $value) {
+        $that[$that->count()->unbox()+1] = $value;
+        return $that;
+    });
+    
+$items = Collection(range(1,10));
+echo $items->count() . " items\n";
+$items->push(11);
+echo $items->count() . " items\n";
