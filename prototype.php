@@ -109,7 +109,6 @@ class Prototype extends Object {
 class Method implements Serializable {
 
     protected $_closure;
-    protected $_reflect;
     protected $_code;
 
     public function __construct (Closure $function) {
