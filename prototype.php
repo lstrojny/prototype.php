@@ -178,19 +178,24 @@ class Method implements Serializable {
 }
 
 function debug (Object $obj, $indent = 0, $return = false) {
+    static $obj_id;
+    $obj_id || $obj_id = function ($obj) {
+        ob_start(); var_dump($obj); $str = ob_get_clean();
+        return preg_match('~^object\(\w+\)(\[|#)(\d+)\]?~m', trim(strip_tags($str)), $m) ? "#{$m[2]}" : '';
+    };
     $pad   = str_repeat("|  ", $indent);
     $lines = array();
     foreach ((array)$obj as $key => $value) {
         if (is_object($value) && !is_callable(array($value, '__toString')))
-            $value = "[object]";
+            $value = "[object{$obj_id($value)}]";
         if ($value instanceOf Object)
             $value = str_replace("|  Object", "Object", trim(debug($value, $indent+1, true)));
         if ($value instanceOf Method)
-            $value = "[function]";
-        $lines[$key] = "{$pad}+ {$key} : {$value}";
+            $value = "[function{$obj_id($value)}]";
+        $lines[$key] = "{$pad}+  {$key} : {$value}";
     }
     ksort($lines);
-    $debug = "{$pad}Object (".count($lines).")\n".implode("\n",$lines)."\n";
+    $debug = "{$pad}Object{$obj_id($obj)} (".count($lines).")\n".implode("\n",$lines)."\n";
     if ($return) return $debug;
     echo $debug;
 }
