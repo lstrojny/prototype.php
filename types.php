@@ -1,5 +1,5 @@
 <?php
-require "prototype.php";
+require_once "prototype.php";
 
 function _ () {
     static $class = null;
@@ -23,6 +23,24 @@ function _ () {
         }
     ));
     return $class;
+}
+
+function box ($val) {
+    switch (gettype($val)) {
+        case 'integer':
+        case 'double':
+            return Number($val);
+        case 'string':
+            return String($val);
+        case 'array':
+            return Collection($val);
+        default:
+            return $arg;
+    }
+}
+
+function unbox ($object) {
+    return $object instanceOf Object ? $object->unbox : $object;
 }
 
 function Boolean () {
@@ -66,22 +84,25 @@ String()->prototype
         return $that;
     })
     ->fn('replace', function ($that, $search, $replacement) {
-        $that->val = str_replace($search, $replacement, $that->val);
+        $that->val = str_replace(unbox($search), unbox($replacement), $that->val);
         return $that;
     })
-    ->fn('match', function ($that, $pattern, $flags = 0, $offset = 0) {
-        return Collection(preg_match($pattern, $that->val, $matches, $flags, $offset) ? $matches : false);
+    ->fn('match', function ($that, $pattern) {
+        if (preg_match(unbox($pattern), $that->val, $matches))
+            return Collection($matches);
+        else
+            return Boolean(false);
     })
     ->fn('explode', function ($that, $separator){
-        return Collection(explode($separator, $that->val));
+        return Collection(explode(unbox($separator), $that->val));
     })
     ->fn('toFile', function ($that, $file) {
-        return Boolean(file_put_contents($file, $that->val));
+        return Boolean(file_put_contents(unbox($file), $that->val));
     });
-    
+
 String()
     ->fn('fromFile', function ($that, $file) {
-        return (is_file($file) && is_readable($file)) ? String(file_get_contents($file)) : false;
+        return is_readable(unbox($file)) ? String(file_get_contents(unbox($file))) : Boolean(false);
     });
 
 function Number () {
@@ -96,6 +117,12 @@ Number()->prototype
     })
     ->fn('convert', function ($that, $from_base, $to_base) {
         return String(base_convert($that->val, $from_base, $to_base));
+    })
+    ->fn('compareTo', function ($that, $number) {
+    })
+    ->fn('isGreaterThan', function ($that, $number, $strict = false) {
+    })
+    ->fn('isLowerThan', function ($that, $number, $strict = false) {
     });
 
 function Collection () {

@@ -2,19 +2,21 @@
 
 class Object implements ArrayAccess {
 
+    protected $_ = array();
+
     public function __construct (Object $prototype = null) {
-        $this->prototype = $prototype ? clone $prototype : new Prototype;
+        $this->_['prototype'] = $prototype ?: new Prototype;
     }
 
     public function __get ($key) {
-        if (isset($this->$key)) return $this->$key;
-        if (isset($this->prototype)) return $this->prototype->$key;
+        if (isset($this->_[$key])) return $this->_[$key];
+        if (isset($this->_['prototype'])) return $this->_['prototype']->$key;
         return null;
     }
 
     public function __set ($key, $value) {
         if ($value instanceof Closure) $this->fn($key,$value);
-        else $this->$key = $value;
+        else $this->_[$key] = $value;
     }
 
     public function __call ($method, $args = array()) {
@@ -37,12 +39,12 @@ class Object implements ArrayAccess {
         try { $this->__call('destruct'); }
         catch (BadMethodCallException $e) { return; }
     }
-    
+
     public function __sleep () {
         try { return $this->__call('sleep'); }
         catch (BadMethodCallException $e) { return array_keys((array)$this); }
     }
-    
+
     public function __wakeup () {
         try { $this->__call('wakeup'); }
         catch (BadMethodCallException $e) { return; }
@@ -51,7 +53,7 @@ class Object implements ArrayAccess {
     public function fn ($name, Closure $function) {
         if (!is_callable($function))
             throw new InvalidArgumentException("Invalid function");
-        $this->$name = new Method($function);
+        $this->_[$name] = new Method($function);
         return $this;
     }
 
@@ -120,7 +122,7 @@ class Method implements Serializable {
     public function __invoke () {
         return call_user_func_array($this->_closure, func_get_args());
     }
-    
+
     public function __toString () {
         try { return $this->_fetchCode(); }
         catch (Exception $e) { return ""; }
@@ -136,48 +138,48 @@ class Method implements Serializable {
         array_unshift($args, $context);
         return call_user_func_array($function, $args);
     }
-    
+
     public function serialize () {
         empty($this->_code) && $this->_fetchCode();
         return serialize($this->_code);
     }
-    
+
     public function unserialize ($serialized) {
         if (!$fct = self::create(unserialize($serialized)))
             throw new RuntimeException("Unable to unserialize method");
-            
+
         $this->_closure = $fct;
     }
-    
+
     protected function _fetchCode() {
         $reflection = new ReflectionFunction($this->_closure);
         $file = new SplFileObject($reflection->getFileName());
         $file->seek($reflection->getStartLine()-1);
-    
+
         $code = '';
         while ($file->key() < $reflection->getEndLine()) {
             $code .= $file->current();
             $file->next();
         }
-        
+
         $begin = strpos($code, 'function');
         $end   = strrpos($code, '}');
         $code  = str_replace(array("\r","\n"), "", substr($code, $begin, $end - $begin + 1));
-        
+
         return $this->_code = $code;
     }
-    
+
     public static function create ($definition) {
         if (!preg_match('~(function)?\s*\((?P<args>[^\)]*)\)\s*\{(?P<code>.*)\}~i', $definition, $matches))
             return false;
-    
+
         $args = $matches['args'];
         $code = $matches['code'];
         return create_function($args, $code);
     }
 }
 
-function debug (Object $obj, $indent = 0, $return = false) {
+function dump (Object $obj, $indent = 0, $return = false) {
     static $obj_id;
     $obj_id || $obj_id = function ($obj) {
         ob_start(); var_dump($obj); $str = ob_get_clean();
@@ -186,12 +188,12 @@ function debug (Object $obj, $indent = 0, $return = false) {
     $pad   = str_repeat("|  ", $indent);
     $lines = array();
     foreach ((array)$obj as $key => $value) {
-        if (is_object($value) && !is_callable(array($value, '__toString')))
-            $value = "[object{$obj_id($value)}]";
+        if (is_object($value))
+            $value = "[".get_class($value)."{$obj_id($value)}]";
         if ($value instanceOf Object)
             $value = str_replace("|  Object", "Object", trim(debug($value, $indent+1, true)));
         if ($value instanceOf Method)
-            $value = "[function{$obj_id($value)}]";
+            $value = "[method{$obj_id($value)}]";
         $lines[$key] = "{$pad}+  {$key} : {$value}";
     }
     ksort($lines);
